@@ -59,7 +59,7 @@ func (f *HTTPStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 		factory:   f,
 		net:       net,
 		transport: transport,
-		r:         tcpreader.NewReaderStream(),
+		r:         httpReaderStream{ReaderStream: tcpreader.NewReaderStream()},
 	}
 	go hstream.run()
 	return &hstream.r
@@ -105,7 +105,7 @@ func (f *HTTPStreamFactory) takeRequest(pair addrPortPair) (timedHTTPRequest, bo
 type httpStream struct {
 	factory        *HTTPStreamFactory
 	net, transport gopacket.Flow
-	r              tcpreader.ReaderStream
+	r              httpReaderStream
 }
 
 const responsePrefix = "HTTP/"
@@ -118,19 +118,19 @@ func (s *httpStream) run() {
 			return
 		}
 
-		now := time.Now()
+		seen := s.r.lastSeen
 		if err != nil {
-			s.sendErr(now, fmt.Errorf("peek packet: %s", err))
+			s.sendErr(seen, fmt.Errorf("peek packet: %s", err))
 			return
 		}
 		src, err := ipAddrPortFromEndpoints(s.net.Src(), s.transport.Src())
 		if err != nil {
-			s.sendErr(now, fmt.Errorf("bad source address: %s", err))
+			s.sendErr(seen, fmt.Errorf("bad source address: %s", err))
 			return
 		}
 		dst, err := ipAddrPortFromEndpoints(s.net.Dst(), s.transport.Dst())
 		if err != nil {
-			s.sendErr(now, fmt.Errorf("bad destination address: %s", err))
+			s.sendErr(seen, fmt.Errorf("bad destination address: %s", err))
 			return
 		}
 
@@ -140,33 +140,33 @@ func (s *httpStream) run() {
 
 			resp, err := http.ReadResponse(buf, req.req)
 			if err != nil {
-				s.sendErr(now, fmt.Errorf("read response: src=%s, dst=%s, err=%s", src, dst, err))
+				s.sendErr(seen, fmt.Errorf("read response: src=%s, dst=%s, err=%s", src, dst, err))
 				return
 			}
 			bodyBytes, err := io.ReadAll(resp.Body)
 			if err != nil {
-				s.sendErr(now, fmt.Errorf("read response body: src=%s, dst=%s, err=%s", src, dst, err))
+				s.sendErr(seen, fmt.Errorf("read response body: src=%s, dst=%s, err=%s", src, dst, err))
 				return
 			}
 			resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			s.sendResponse(now, dst, src, resp, req.time)
+			s.sendResponse(seen, dst, src, resp, req.time)
 		} else {
 			req, err := http.ReadRequest(buf)
 			if err != nil {
-				s.sendErr(now, fmt.Errorf("read request: src=%s, dst=%s, err=%s", src, dst, err))
+				s.sendErr(seen, fmt.Errorf("read request: src=%s, dst=%s, err=%s", src, dst, err))
 				return
 			}
 			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
-				s.sendErr(now, fmt.Errorf("read requset body: src=%s, dst=%s, err=%s", src, dst, err))
+				s.sendErr(seen, fmt.Errorf("read requset body: src=%s, dst=%s, err=%s", src, dst, err))
 				return
 			}
 			req.Body.Close()
 			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 			pair := addrPortPair{src: src, dst: dst}
-			s.factory.putRequest(pair, timedHTTPRequest{time: now, req: req})
+			s.factory.putRequest(pair, timedHTTPRequest{time: seen, req: req})
 		}
 	}
 }
@@ -186,6 +186,18 @@ func (s *httpStream) sendResponse(now time.Time, client, server netip.AddrPort, 
 		Server:      server,
 		Response:    resp,
 	}
+}
+
+type httpReaderStream struct {
+	tcpreader.ReaderStream
+	lastSeen time.Time
+}
+
+func (r *httpReaderStream) Reassembled(reassembly []tcpassembly.Reassembly) {
+	if len(reassembly) > 0 {
+		r.lastSeen = reassembly[0].Seen
+	}
+	r.ReaderStream.Reassembled(reassembly)
 }
 
 type addrPortPair struct {
