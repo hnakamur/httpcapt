@@ -43,9 +43,9 @@ type HTTPStreamFactory struct {
 	mu           sync.Mutex
 }
 
-func NewHTTPStreamFactory(packetSource *gopacket.PacketSource, resultC chan<- CaptureResult) *HTTPStreamFactory {
+func NewHTTPStreamFactory(handle PcapHandle, resultC chan<- CaptureResult) *HTTPStreamFactory {
 	return &HTTPStreamFactory{
-		packetSource: packetSource,
+		packetSource: gopacket.NewPacketSource(handle, handle.LinkType()),
 		resultC:      resultC,
 		requests:     make(map[addrPortPair]timedHTTPRequest),
 	}
