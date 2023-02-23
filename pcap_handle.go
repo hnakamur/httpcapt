@@ -1,8 +1,6 @@
 package httpcapt
 
 import (
-	"time"
-
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
@@ -14,6 +12,6 @@ type PcapHandle interface {
 	Close()
 }
 
-func OpenLivePcapHandle(device string, snaplen int32, promiscuous bool, timeout time.Duration) (PcapHandle, error) {
-	return openLivePcapHandle(device, snaplen, promiscuous, timeout)
+func OpenEthernetHandle(device string) (PcapHandle, error) {
+	return openEthernetHandle(device)
 }

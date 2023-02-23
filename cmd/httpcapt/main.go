@@ -8,30 +8,26 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/hnakamur/httpcapt"
 )
 
 func main() {
-	dev := flag.String("i", "any", "device name")
+	dev := flag.String("i", "lo", "device name")
 	filter := flag.String("f", "tcp and port 80", "filter")
-	snaplen := flag.Int("snaplen", 1500, "maximum size to read for each packet")
-	promisc := flag.Bool("promisc", false, "whether to put the interface in promiscuous mode")
-	timeout := flag.Duration("timeout", time.Second, "timeout (0=forever)")
 	flag.Parse()
 
 	ctx := context.Background()
-	if err := run(ctx, *dev, *filter, int32(*snaplen), *promisc, *timeout); err != nil {
+	if err := run(ctx, *dev, *filter); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(ctx context.Context, dev, filter string, snaplen int32, promisc bool, timeout time.Duration) error {
+func run(ctx context.Context, dev, filter string) error {
 	notifyCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	handle, err := httpcapt.OpenLivePcapHandle(dev, snaplen, promisc, timeout)
+	handle, err := httpcapt.OpenEthernetHandle(dev)
 	if err != nil {
 		return fmt.Errorf("open device to capture: %s", err)
 	}

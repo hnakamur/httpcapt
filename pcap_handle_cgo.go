@@ -14,11 +14,8 @@ type cgoPcapHandle struct {
 	*pcap.Handle
 }
 
-func openLivePcapHandle(device string, snaplen int32, promiscuous bool, timeout time.Duration) (PcapHandle, error) {
-	if timeout == 0 {
-		timeout = pcap.BlockForever
-	}
-	h, err := pcap.OpenLive(device, snaplen, promiscuous, timeout)
+func openEthernetHandle(device string) (PcapHandle, error) {
+	h, err := pcap.OpenLive(device, 1600, false, time.Second)
 	if err != nil {
 		return nil, err
 	}

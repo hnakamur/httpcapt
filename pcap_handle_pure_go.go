@@ -3,8 +3,6 @@
 package httpcapt
 
 import (
-	"time"
-
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
 	"github.com/packetcap/go-pcap/filter"
@@ -17,13 +15,11 @@ type pureGoPcapHandle struct {
 	*pcapgo.EthernetHandle
 }
 
-func openLivePcapHandle(device string, snaplen int32, promiscuous bool, _ time.Duration) (PcapHandle, error) {
+func openEthernetHandle(device string) (PcapHandle, error) {
 	h, err := pcapgo.NewEthernetHandle(device)
 	if err != nil {
 		return nil, err
 	}
-	h.SetCaptureLength(int(snaplen))
-	h.SetPromiscuous(promiscuous)
 	return &pureGoPcapHandle{EthernetHandle: h}, nil
 }
 
