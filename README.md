@@ -2,25 +2,27 @@
 
 a HTTP/1.1 packet capture library written in Go.
 
-For cgo enabled build, `libpcap` is needed. On Ubuntu/Debian, run the following command to install `libpcap-dev`.
+For Cgo enabled build, `libpcap` is needed. On Ubuntu/Debian, run the following command to install `libpcap-dev`.
 
 ```
 sudo apt-get install -y libpcap-dev
 ```
 
-On Linux, pure go build is also possible with `CGO_ENABLED=0 go build`
+On Linux, pure Go build is also possible with `CGO_ENABLED=0 go build`
+
+I wrote a [blog](https://hnakamur.github.io/blog/2023/02/23/http-capture-library-in-go/) in Japanese.
 
 ## Example
 
 Please see [cmd/httpcapt/main.go](https://github.com/hnakamur/httpcapt/blob/main/cmd/httpcapt/main.go) for example usage.
 
-Install the example CLI with cgo enabled build.
+Install the example CLI with Cgo enabled build.
 
 ```
 go install github.com/hnakamur/httpcapt/...
 ```
 
-Or install the example CLI with pure go build.
+Or install the example CLI with pure Go build.
 
 ```
 CGO_ENABLED=0 go install github.com/hnakamur/httpcapt/...
