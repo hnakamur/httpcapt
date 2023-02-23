@@ -14,6 +14,18 @@ On Linux, pure go build is also possible with `CGO_ENABLED=0 go build`
 
 Please see [cmd/httpcapt/main.go](https://github.com/hnakamur/httpcapt/blob/main/cmd/httpcapt/main.go) for example usage.
 
+Install the example CLI with cgo enabled build.
+
+```
+go install github.com/hnakamur/httpcapt/...
+```
+
+Or install the example CLI with pure go build.
+
+```
+CGO_ENABLED=0 go install github.com/hnakamur/httpcapt/...
+```
+
 ## Credits
 
 This library uses [github.com/google/gopacket/pcap](https://pkg.go.dev/github.com/google/gopacket@v1.1.19/pcap) for cgo build,
