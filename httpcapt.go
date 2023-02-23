@@ -117,8 +117,13 @@ func (s *httpStream) run() {
 		if err == io.EOF {
 			return
 		}
-
 		seen := s.r.lastSeen
+		if seen.IsZero() {
+			// Use current timestamp since go-pcap implementation using syscalls does not set capture timestamp.
+			// https://github.com/packetcap/go-pcap/blob/2b2e9401028218c9c7381fbf76783c16ab0b725a/pcap_linux.go#L115-L117
+			// https://github.com/packetcap/go-pcap/blob/2b2e9401028218c9c7381fbf76783c16ab0b725a/pcap_darwin.go#L59-L60
+			seen = time.Now()
+		}
 		if err != nil {
 			s.sendErr(seen, fmt.Errorf("peek packet: %s", err))
 			return
