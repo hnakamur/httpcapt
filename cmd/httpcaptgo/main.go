@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/pcap"
+	"github.com/google/gopacket/layers"
 	"github.com/hnakamur/httpcapt"
+	"github.com/packetcap/go-pcap"
 )
 
 func main() {
@@ -21,22 +22,20 @@ func main() {
 	snaplen := flag.Int("snaplen", 1500, "maximum size to read for each packet")
 	promisc := flag.Bool("promisc", true, "whether to put the interface in promiscuous mode")
 	timeout := flag.Duration("timeout", time.Second, "timeout (0=forever)")
+	syscalls := flag.Bool("syscall", false, "use system calls")
 	flag.Parse()
 
-	if *timeout == 0 {
-		*timeout = pcap.BlockForever
-	}
 	ctx := context.Background()
-	if err := run(ctx, *dev, *filter, int32(*snaplen), *promisc, *timeout); err != nil {
+	if err := run(ctx, *dev, *filter, int32(*snaplen), *promisc, *timeout, *syscalls); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(ctx context.Context, dev, filter string, snaplen int32, promisc bool, timeout time.Duration) error {
+func run(ctx context.Context, dev, filter string, snaplen int32, promisc bool, timeout time.Duration, syscalls bool) error {
 	notifyCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	handle, err := pcap.OpenLive(dev, snaplen, promisc, timeout)
+	handle, err := pcap.OpenLive(dev, snaplen, promisc, timeout, syscalls)
 	if err != nil {
 		return fmt.Errorf("open device to capture: %s", err)
 	}
@@ -46,7 +45,7 @@ func run(ctx context.Context, dev, filter string, snaplen int32, promisc bool, t
 		return fmt.Errorf("set bpf filter: %s", err)
 	}
 
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	packetSource := gopacket.NewPacketSource(handle, layers.LayerTypeEthernet)
 	resultC := make(chan httpcapt.CaptureResult)
 	streamFactory := httpcapt.NewHTTPStreamFactory(packetSource, resultC)
 	go streamFactory.Run(notifyCtx)

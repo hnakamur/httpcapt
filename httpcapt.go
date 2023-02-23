@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
@@ -38,17 +37,17 @@ type timedHTTPRequest struct {
 }
 
 type HTTPStreamFactory struct {
-	handle   *pcap.Handle
-	resultC  chan<- CaptureResult
-	requests map[addrPortPair]timedHTTPRequest
-	mu       sync.Mutex
+	packetSource *gopacket.PacketSource
+	resultC      chan<- CaptureResult
+	requests     map[addrPortPair]timedHTTPRequest
+	mu           sync.Mutex
 }
 
-func NewHTTPStreamFactory(handle *pcap.Handle, resultC chan<- CaptureResult) *HTTPStreamFactory {
+func NewHTTPStreamFactory(packetSource *gopacket.PacketSource, resultC chan<- CaptureResult) *HTTPStreamFactory {
 	return &HTTPStreamFactory{
-		handle:   handle,
-		resultC:  resultC,
-		requests: make(map[addrPortPair]timedHTTPRequest),
+		packetSource: packetSource,
+		resultC:      resultC,
+		requests:     make(map[addrPortPair]timedHTTPRequest),
 	}
 }
 
@@ -69,10 +68,9 @@ func (f *HTTPStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 func (f *HTTPStreamFactory) Run(ctx context.Context) error {
 	streamPool := tcpassembly.NewStreamPool(f)
 	assembler := tcpassembly.NewAssembler(streamPool)
-	packetSource := gopacket.NewPacketSource(f.handle, f.handle.LinkType())
 	for {
 		select {
-		case packet, ok := <-packetSource.Packets():
+		case packet, ok := <-f.packetSource.Packets():
 			if !ok {
 				return nil
 			}
