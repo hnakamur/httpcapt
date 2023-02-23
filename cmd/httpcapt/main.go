@@ -19,7 +19,7 @@ func main() {
 	dev := flag.String("i", "any", "device name")
 	filter := flag.String("f", "tcp and port 80", "filter")
 	snaplen := flag.Int("snaplen", 1500, "maximum size to read for each packet")
-	promisc := flag.Bool("promisc", true, "whether to put the interface in promiscuous mode")
+	promisc := flag.Bool("promisc", false, "whether to put the interface in promiscuous mode")
 	timeout := flag.Duration("timeout", time.Second, "timeout (0=forever)")
 	flag.Parse()
 
