@@ -21,20 +21,26 @@ import (
 )
 
 type CaptureResult struct {
-	Time     time.Time
-	Client   netip.AddrPort
-	Server   netip.AddrPort
-	Response *http.Response
-	Error    error
+	RequestTime time.Time
+	Time        time.Time
+	Client      netip.AddrPort
+	Server      netip.AddrPort
+	Response    *http.Response
+	Error       error
 }
 
 var errUnexpectedEndpointType = errors.New("unexpected endpoint type")
 var errUnexpectedIPAddressLen = errors.New("unexpected IP Address length")
 
+type timedHTTPRequest struct {
+	time time.Time
+	req  *http.Request
+}
+
 type HTTPStreamFactory struct {
 	handle   *pcap.Handle
 	resultC  chan<- CaptureResult
-	requests map[addrPortPair]*http.Request
+	requests map[addrPortPair]timedHTTPRequest
 	mu       sync.Mutex
 }
 
@@ -42,7 +48,7 @@ func NewHTTPStreamFactory(handle *pcap.Handle, resultC chan<- CaptureResult) *HT
 	return &HTTPStreamFactory{
 		handle:   handle,
 		resultC:  resultC,
-		requests: make(map[addrPortPair]*http.Request),
+		requests: make(map[addrPortPair]timedHTTPRequest),
 	}
 }
 
@@ -82,18 +88,20 @@ func (f *HTTPStreamFactory) Run(ctx context.Context) error {
 	}
 }
 
-func (f *HTTPStreamFactory) putRequest(pair addrPortPair, req *http.Request) {
+func (f *HTTPStreamFactory) putRequest(pair addrPortPair, req timedHTTPRequest) {
 	f.mu.Lock()
 	f.requests[pair] = req
 	f.mu.Unlock()
 }
 
-func (f *HTTPStreamFactory) takeRequest(pair addrPortPair) *http.Request {
+func (f *HTTPStreamFactory) takeRequest(pair addrPortPair) (timedHTTPRequest, bool) {
 	f.mu.Lock()
-	req := f.requests[pair]
-	delete(f.requests, pair)
+	req, ok := f.requests[pair]
+	if ok {
+		delete(f.requests, pair)
+	}
 	f.mu.Unlock()
-	return req
+	return req, ok
 }
 
 type httpStream struct {
@@ -130,9 +138,9 @@ func (s *httpStream) run() {
 
 		if string(prefix) == responsePrefix {
 			pair := addrPortPair{src: dst, dst: src}
-			req := s.factory.takeRequest(pair)
+			req, _ := s.factory.takeRequest(pair)
 
-			resp, err := http.ReadResponse(buf, req)
+			resp, err := http.ReadResponse(buf, req.req)
 			if err != nil {
 				s.sendErr(now, fmt.Errorf("read response: src=%s, dst=%s, err=%s", src, dst, err))
 				return
@@ -144,7 +152,7 @@ func (s *httpStream) run() {
 			}
 			resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-			s.sendResponse(now, dst, src, resp)
+			s.sendResponse(now, dst, src, resp, req.time)
 		} else {
 			req, err := http.ReadRequest(buf)
 			if err != nil {
@@ -160,7 +168,7 @@ func (s *httpStream) run() {
 			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
 			pair := addrPortPair{src: src, dst: dst}
-			s.factory.putRequest(pair, req)
+			s.factory.putRequest(pair, timedHTTPRequest{time: now, req: req})
 		}
 	}
 }
@@ -172,12 +180,13 @@ func (s *httpStream) sendErr(now time.Time, err error) {
 	}
 }
 
-func (s *httpStream) sendResponse(now time.Time, client, server netip.AddrPort, resp *http.Response) {
+func (s *httpStream) sendResponse(now time.Time, client, server netip.AddrPort, resp *http.Response, reqTime time.Time) {
 	s.factory.resultC <- CaptureResult{
-		Time:     now,
-		Client:   client,
-		Server:   server,
-		Response: resp,
+		RequestTime: reqTime,
+		Time:        now,
+		Client:      client,
+		Server:      server,
+		Response:    resp,
 	}
 }
 

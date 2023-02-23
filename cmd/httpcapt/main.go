@@ -57,8 +57,8 @@ func run(ctx context.Context, dev, filter string, snaplen int32, promisc bool, t
 		if err != nil {
 			return fmt.Errorf("read body from response: %s", result.Error)
 		}
-		log.Printf("result: time=%s, client=%s, server=%s, request=%+v, requestBody=%s, response=%+v, responseBody=%s",
-			result.Time, result.Client, result.Server, req, string(reqBodyBytes), resp, string(respBodyBytes))
+		log.Printf("result: reqTime=%s, respTime=%s, client=%s, server=%s, request=%+v, requestBody=%s, response=%+v, responseBody=%s",
+			result.RequestTime, result.Time, result.Client, result.Server, req, string(reqBodyBytes), resp, string(respBodyBytes))
 	}
 	return nil
 }
