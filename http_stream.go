@@ -19,15 +19,6 @@ import (
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-type CaptureResult struct {
-	RequestTime time.Time
-	Time        time.Time
-	Client      netip.AddrPort
-	Server      netip.AddrPort
-	Response    *http.Response
-	Error       error
-}
-
 var errUnexpectedEndpointType = errors.New("unexpected endpoint type")
 var errUnexpectedIPAddressLen = errors.New("unexpected IP Address length")
 
@@ -36,15 +27,15 @@ type timedHTTPRequest struct {
 	req  *http.Request
 }
 
-type HTTPStreamFactory struct {
+type httpStreamFactory struct {
 	packetSource *gopacket.PacketSource
 	resultC      chan<- CaptureResult
 	requests     map[addrPortPair]timedHTTPRequest
 	mu           sync.Mutex
 }
 
-func NewHTTPStreamFactory(handle PcapHandle, resultC chan<- CaptureResult) *HTTPStreamFactory {
-	return &HTTPStreamFactory{
+func newHTTPStreamFactory(handle pcapHandle, resultC chan<- CaptureResult) *httpStreamFactory {
+	return &httpStreamFactory{
 		packetSource: gopacket.NewPacketSource(handle, handle.LinkType()),
 		resultC:      resultC,
 		requests:     make(map[addrPortPair]timedHTTPRequest),
@@ -52,9 +43,9 @@ func NewHTTPStreamFactory(handle PcapHandle, resultC chan<- CaptureResult) *HTTP
 }
 
 // HTTPStreamFactory implements tcpassembly.StreamFactory
-var _ tcpassembly.StreamFactory = (*HTTPStreamFactory)(nil)
+var _ tcpassembly.StreamFactory = (*httpStreamFactory)(nil)
 
-func (f *HTTPStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
+func (f *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
 	hstream := &httpStream{
 		factory:   f,
 		net:       net,
@@ -65,7 +56,7 @@ func (f *HTTPStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 	return &hstream.r
 }
 
-func (f *HTTPStreamFactory) Run(ctx context.Context) error {
+func (f *httpStreamFactory) Run(ctx context.Context) error {
 	streamPool := tcpassembly.NewStreamPool(f)
 	assembler := tcpassembly.NewAssembler(streamPool)
 	for {
@@ -86,13 +77,13 @@ func (f *HTTPStreamFactory) Run(ctx context.Context) error {
 	}
 }
 
-func (f *HTTPStreamFactory) putRequest(pair addrPortPair, req timedHTTPRequest) {
+func (f *httpStreamFactory) putRequest(pair addrPortPair, req timedHTTPRequest) {
 	f.mu.Lock()
 	f.requests[pair] = req
 	f.mu.Unlock()
 }
 
-func (f *HTTPStreamFactory) takeRequest(pair addrPortPair) (timedHTTPRequest, bool) {
+func (f *httpStreamFactory) takeRequest(pair addrPortPair) (timedHTTPRequest, bool) {
 	f.mu.Lock()
 	req, ok := f.requests[pair]
 	if ok {
@@ -103,7 +94,7 @@ func (f *HTTPStreamFactory) takeRequest(pair addrPortPair) (timedHTTPRequest, bo
 }
 
 type httpStream struct {
-	factory        *HTTPStreamFactory
+	factory        *httpStreamFactory
 	net, transport gopacket.Flow
 	r              httpReaderStream
 }

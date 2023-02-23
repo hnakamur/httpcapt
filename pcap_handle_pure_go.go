@@ -9,13 +9,13 @@ import (
 	"golang.org/x/net/bpf"
 )
 
-var _ PcapHandle = (*pureGoPcapHandle)(nil)
+var _ pcapHandle = (*pureGoPcapHandle)(nil)
 
 type pureGoPcapHandle struct {
 	*pcapgo.EthernetHandle
 }
 
-func openEthernetHandle(device string) (PcapHandle, error) {
+func openEthernetHandle(device string) (pcapHandle, error) {
 	h, err := pcapgo.NewEthernetHandle(device)
 	if err != nil {
 		return nil, err

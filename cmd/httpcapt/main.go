@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	dev := flag.String("i", "lo", "device name")
+	dev := flag.String("i", "any", "device name or \"any\" for all devices")
 	filter := flag.String("f", "tcp and port 80", "filter")
 	flag.Parse()
 
@@ -27,19 +27,17 @@ func run(ctx context.Context, dev, filter string) error {
 	notifyCtx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
 
-	handle, err := httpcapt.OpenEthernetHandle(dev)
+	resultC := make(chan httpcapt.CaptureResult)
+
+	capturer, err := httpcapt.NewEthernetCapturer(dev)
 	if err != nil {
 		return fmt.Errorf("open device to capture: %s", err)
 	}
-	defer handle.Close()
-
-	if err = handle.SetBPFFilter(filter); err != nil {
+	if err = capturer.SetBPFFilter(filter); err != nil {
 		return fmt.Errorf("set bpf filter: %s", err)
 	}
+	go capturer.Capture(notifyCtx, resultC)
 
-	resultC := make(chan httpcapt.CaptureResult)
-	streamFactory := httpcapt.NewHTTPStreamFactory(handle, resultC)
-	go streamFactory.Run(notifyCtx)
 	for {
 		select {
 		case result := <-resultC:
